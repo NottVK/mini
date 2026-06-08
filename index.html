@@ -831,6 +831,18 @@ html, body {
   .gacha-msg { padding: 18px 18px; max-width: 92vw; }
   .gacha-msg p { font-size: clamp(14px,4vw,18px); min-height: 50px; }
 
+  /* Imagen escena 10 — reducir zoom en móvil para ver más de la imagen */
+  #scene10 .scene-bg {
+    background-size: 75% !important;
+    background-repeat: no-repeat !important;
+    background-position: center center !important;
+    animation: zoomFloat10Mobile 20s ease-in-out infinite !important;
+  }
+  @keyframes zoomFloat10Mobile {
+    0%,100% { transform: scale(1.0) translateY(0px); }
+    50%     { transform: scale(0.97) translateY(-6px); }
+  }
+
   /* Juntos escena 11 */
   .juntos-msg {
     bottom: clamp(56px, 15vw, 90px);
