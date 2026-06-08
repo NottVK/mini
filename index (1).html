@@ -1,0 +1,2142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Entre Dimensiones</title>
+<style>
+/* ============================================================
+   VARIABLES & RESET
+   ============================================================ */
+:root {
+  --clr-void:     #03010a;
+  --clr-deep:     #0d0520;
+  --clr-purple:   #6b21a8;
+  --clr-violet:   #9333ea;
+  --clr-lavender: #c084fc;
+  --clr-silver:   #e2d9f3;
+  --clr-white:    #ffffff;
+  --clr-gold:     #f0c060;
+  --clr-rose:     #fda4af;
+  --font-title:   'Georgia', 'Times New Roman', serif;
+  --font-body:    'Palatino Linotype', 'Palatino', serif;
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+html, body {
+  width:100%; height:100%;
+  overflow:hidden;
+  background:#000;
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none; user-select: none;
+}
+
+/* ============================================================
+   ESCENAS
+   ============================================================ */
+#stage {
+  position:fixed; inset:0;
+  width:100%; height:100%;
+}
+
+.scene {
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 1.2s ease;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+}
+
+.scene.active {
+  opacity:1;
+  pointer-events:all;
+}
+
+/* Imagen de fondo de escena */
+.scene-bg {
+  position:absolute; inset:0;
+  background-size:cover;
+  background-position:center;
+  background-repeat:no-repeat;
+  transform:scale(1.08);
+  transition:transform 18s ease;
+  will-change:transform;
+}
+
+.scene.active .scene-bg {
+  transform:scale(1);
+}
+
+/* Overlay de color por escena */
+.scene-overlay {
+  position:absolute; inset:0;
+  pointer-events:none;
+}
+
+/* ============================================================
+   CANVAS GLOBAL (partículas/pétalos)
+   ============================================================ */
+#fx-canvas {
+  position:fixed; inset:0;
+  width:100%; height:100%;
+  pointer-events:none;
+  z-index:10;
+}
+
+/* ============================================================
+   FLASH DE TRANSICIÓN (blanco — reservado para orbe/colapso)
+   ============================================================ */
+#flash {
+  position:fixed; inset:0;
+  background:#fff;
+  opacity:0;
+  pointer-events:none;
+  z-index:999;
+  transition:opacity 0.1s ease;
+}
+
+/* ============================================================
+   CAPA NEGRA CINEMATOGRÁFICA
+   ============================================================ */
+#cinema-veil {
+  position:fixed; inset:0;
+  background:#000;
+  opacity:0;
+  pointer-events:none;
+  z-index:998;
+  transition:opacity 0.6s ease;
+}
+
+/* ============================================================
+   ESTADOS CINEMATOGRÁFICOS DE IMAGEN
+   ============================================================ */
+/* Imagen saliendo: fade out + zoom out suave */
+.scene-bg.cinematic-out {
+  opacity: 0 !important;
+  transform: scale(1.14) !important;
+  transition: opacity 0.7s ease, transform 0.7s ease !important;
+}
+
+/* Imagen entrando: zoom in suave + fade in */
+.scene-bg.cinematic-in {
+  opacity: 0;
+  transform: scale(1.14);
+  transition: none;
+}
+.scene-bg.cinematic-in.cinematic-in-active {
+  opacity: 1;
+  transform: scale(1.08);
+  transition: opacity 1.2s ease, transform 1.2s ease !important;
+}
+
+/* ============================================================
+   ESTADOS DE TEXTO — MÁQUINA DE ESCRIBIR CINEMATOGRÁFICA
+   ============================================================ */
+.scene-msg, .glass-panel, .gacha-msg, .juntos-msg, .final-overlay-msg {
+  will-change: opacity, transform;
+}
+
+/* Texto con glow púrpura dinámico */
+.cinematic-glow {
+  text-shadow:
+    0 0 10px rgba(192,132,252,0.9),
+    0 0 25px rgba(147,51,234,0.7),
+    0 0 50px rgba(107,33,168,0.5) !important;
+}
+
+/* Estado inicial de wrappers de texto — invisible y desplazado */
+.text-cinematic-init {
+  opacity: 0 !important;
+  transform: translateY(14px) !important;
+  transition: none !important;
+}
+.text-cinematic-show {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+  transition: opacity 0.9s ease, transform 0.9s ease !important;
+}
+
+/* ============================================================
+   HINT DE CLIC
+   ============================================================ */
+#click-hint {
+  position:fixed;
+  bottom:32px;
+  left:50%;
+  transform:translateX(-50%);
+  color:rgba(255,255,255,0.55);
+  font-size:clamp(11px,2.5vw,14px);
+  letter-spacing:0.25em;
+  text-transform:uppercase;
+  z-index:50;
+  opacity:0;
+  transition:opacity 0.8s ease;
+  animation:hintPulse 2.5s ease-in-out infinite;
+  font-family: var(--font-body);
+}
+
+@keyframes hintPulse {
+  0%,100%{ opacity:0.3; transform:translateX(-50%) translateY(0); }
+  50%{ opacity:0.7; transform:translateX(-50%) translateY(-4px); }
+}
+
+/* ============================================================
+   ESCENA 1 — CIELO ESTRELLADO
+   ============================================================ */
+#scene1 {
+  cursor:pointer;
+  background: radial-gradient(ellipse at 50% 60%, #1a0533 0%, #07011a 50%, #000 100%);
+}
+
+.s1-title {
+  position:relative; z-index:5;
+  text-align:center;
+  color:var(--clr-silver);
+  opacity:0;
+  animation:fadeInUp 2s ease 1.5s forwards;
+}
+
+.s1-title h1 {
+  font-size:clamp(14px,3.5vw,20px);
+  letter-spacing:0.4em;
+  text-transform:uppercase;
+  font-weight:400;
+  text-shadow:0 0 30px rgba(192,132,252,0.8), 0 0 60px rgba(147,51,234,0.5);
+}
+
+@keyframes fadeInUp {
+  from { opacity:0; transform:translateY(20px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+/* ============================================================
+   ESCENA 2 — DRAGÓN & PRINCESA
+   ============================================================ */
+#scene2 { cursor:pointer; }
+
+#scene2 .scene-bg {
+  animation:breathe 8s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%,100% { transform:scale(1.05) translateY(0); }
+  50%     { transform:scale(1.08) translateY(-8px); }
+}
+
+/* ============================================================
+   ESCENAS 3,4,5 — MENSAJES
+   ============================================================ */
+.scene-msg {
+  position:relative; z-index:5;
+  text-align:center;
+  padding:clamp(16px,4vw,32px) clamp(20px,6vw,60px);
+  max-width:min(700px, 88vw);
+}
+
+.scene-msg p {
+  color:var(--clr-silver);
+  font-size:clamp(16px,3.5vw,26px);
+  line-height:1.7;
+  font-style:italic;
+  font-family: var(--font-title);
+}
+
+.glow-text {
+  text-shadow:
+    0 0 10px rgba(192,132,252,0.9),
+    0 0 25px rgba(147,51,234,0.7),
+    0 0 50px rgba(107,33,168,0.5);
+}
+
+/* ============================================================
+   ESCENA 6 — BRECHA DIMENSIONAL
+   ============================================================ */
+#scene6 { cursor:pointer; }
+
+.rift-ring {
+  position:absolute;
+  border-radius:50%;
+  border:1px solid rgba(192,132,252,0.3);
+  animation:riftPulse 3s ease-in-out infinite;
+}
+
+@keyframes riftPulse {
+  0%,100% { transform:scale(1); opacity:0.3; }
+  50%     { transform:scale(1.08); opacity:0.7; }
+}
+
+/* ============================================================
+   ESCENA 7 — LUZ INTERACTIVA
+   ============================================================ */
+#scene7 { cursor:default; }
+
+#light-orb {
+  position:absolute;
+  width:clamp(80px,18vw,160px);
+  height:clamp(80px,18vw,160px);
+  border-radius:50%;
+  background:radial-gradient(circle, #fff 0%, #e0c8ff 30%, rgba(147,51,234,0.4) 70%, transparent 100%);
+  box-shadow:
+    0 0 40px 10px rgba(255,255,255,0.8),
+    0 0 80px 20px rgba(192,132,252,0.6),
+    0 0 120px 40px rgba(147,51,234,0.4);
+  cursor:pointer;
+  z-index:10;
+  transition:transform 0.2s ease, box-shadow 0.2s ease;
+  animation:orbFloat 4s ease-in-out infinite;
+  top:50%; left:50%;
+  transform:translate(-50%,-50%);
+}
+
+#light-orb:hover, #light-orb.hovered {
+  box-shadow:
+    0 0 60px 20px rgba(255,255,255,1),
+    0 0 100px 40px rgba(192,132,252,0.9),
+    0 0 180px 60px rgba(147,51,234,0.6);
+}
+
+@keyframes orbFloat {
+  0%,100% { transform:translate(-50%,-50%) scale(1); }
+  50%     { transform:translate(-50%,-56%) scale(1.04); }
+}
+
+/* ============================================================
+   ESCENA 8 — PANEL DIMENSIÓN
+   ============================================================ */
+#scene8 {
+  background:radial-gradient(ellipse at 50% 50%, #1a0533 0%, #07011a 70%, #000 100%);
+}
+
+.glass-panel {
+  position:relative; z-index:5;
+  background:rgba(255,255,255,0.05);
+  backdrop-filter:blur(20px) saturate(1.5);
+  -webkit-backdrop-filter:blur(20px) saturate(1.5);
+  border:1px solid rgba(192,132,252,0.25);
+  border-radius:20px;
+  padding:clamp(24px,5vw,48px) clamp(24px,6vw,56px);
+  max-width:min(660px, 88vw);
+  box-shadow:
+    0 0 0 1px rgba(192,132,252,0.1),
+    0 8px 60px rgba(107,33,168,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.1);
+  text-align:center;
+}
+
+.glass-panel .panel-title {
+  color:var(--clr-lavender);
+  font-size:clamp(11px,2vw,13px);
+  letter-spacing:0.4em;
+  text-transform:uppercase;
+  margin-bottom:20px;
+  opacity:0.7;
+}
+
+.glass-panel .panel-text {
+  color:var(--clr-silver);
+  font-size:clamp(15px,3vw,20px);
+  line-height:1.8;
+  font-style:italic;
+  font-family: var(--font-title);
+  min-height:80px;
+}
+
+#btn-continuar {
+  margin-top:32px;
+  padding:12px 40px;
+  background:transparent;
+  border:1px solid rgba(192,132,252,0.5);
+  border-radius:50px;
+  color:var(--clr-lavender);
+  font-size:clamp(12px,2.5vw,14px);
+  letter-spacing:0.3em;
+  text-transform:uppercase;
+  cursor:pointer;
+  font-family: var(--font-body);
+  transition:all 0.3s ease;
+  position:relative;
+  overflow:hidden;
+}
+
+#btn-continuar::before {
+  content:'';
+  position:absolute; inset:0;
+  background:linear-gradient(135deg,rgba(192,132,252,0.15),rgba(147,51,234,0.15));
+  opacity:0;
+  transition:opacity 0.3s ease;
+}
+
+#btn-continuar:hover::before { opacity:1; }
+
+#btn-continuar:hover {
+  border-color:rgba(192,132,252,0.9);
+  color:#fff;
+  box-shadow:0 0 20px rgba(147,51,234,0.4);
+}
+
+/* ============================================================
+   ESCENA 9 — CEREZOS (mejorada)
+   ============================================================ */
+#scene9 { cursor:pointer; }
+
+/* ============================================================
+   ESCENA 10 — GACHA FINAL
+   ============================================================ */
+#scene10 { cursor:pointer; }
+
+#scene10 .scene-bg {
+  animation: zoomFloat 20s ease-in-out infinite;
+}
+
+@keyframes zoomFloat {
+  0%,100% { transform: scale(1.12) translateY(0px); }
+  50%     { transform: scale(1.06) translateY(-10px); }
+}
+
+.gacha-msg {
+  position: relative; z-index: 5;
+  text-align: center;
+  max-width: min(680px, 88vw);
+  padding: clamp(20px,4vw,40px) clamp(20px,5vw,50px);
+  background: rgba(10,2,20,0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(192,132,252,0.2);
+  border-radius: 18px;
+  box-shadow: 0 0 40px rgba(107,33,168,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+.gacha-msg p {
+  color: var(--clr-silver);
+  font-size: clamp(15px, 3vw, 22px);
+  line-height: 1.8;
+  font-style: italic;
+  font-family: var(--font-title);
+  text-shadow: 0 0 15px rgba(192,132,252,0.7);
+  min-height: 70px;
+}
+
+/* ============================================================
+   ESCENA 11 — JUNTOS (NUEVA — PAISAJE PRINCIPAL)
+   ============================================================ */
+#scene11 { cursor: pointer; }
+
+/* Zoom suave + flotación parallax sobre el fondo */
+#scene11 .scene-bg {
+  animation: juntosFloat 22s ease-in-out infinite;
+  transform-origin: 50% 60%;
+}
+@keyframes juntosFloat {
+  0%,100% { transform: scale(1.10) translateY(0px) translateX(0px); }
+  25%     { transform: scale(1.07) translateY(-6px) translateX(2px); }
+  50%     { transform: scale(1.05) translateY(-10px) translateX(-2px); }
+  75%     { transform: scale(1.08) translateY(-4px) translateX(1px); }
+}
+
+/* Overlay para que el texto sea legible sin oscurecer demasiado */
+#scene11 .overlay-juntos {
+  background: linear-gradient(
+    to top,
+    rgba(3,1,10,0.72) 0%,
+    rgba(3,1,10,0.18) 40%,
+    rgba(10,2,25,0.08) 70%,
+    transparent 100%
+  );
+}
+
+/* Bruma mágica animada */
+#juntos-mist {
+  position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 30% at 50% 90%, rgba(253,200,210,0.18) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 20% at 20% 80%, rgba(192,132,252,0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 20% at 80% 85%, rgba(253,164,175,0.10) 0%, transparent 60%);
+  animation: mistBreath 8s ease-in-out infinite;
+}
+@keyframes mistBreath {
+  0%,100% { opacity: 0.7; }
+  50%     { opacity: 1.0; }
+}
+
+/* Panel de mensaje de encuentro */
+.juntos-msg {
+  position: absolute;
+  bottom: clamp(80px, 18vw, 140px);
+  left: 50%; transform: translateX(-50%);
+  z-index: 8;
+  text-align: center;
+  max-width: min(700px, 88vw);
+  width: 88vw;
+  padding: clamp(22px,4vw,44px) clamp(24px,5vw,56px);
+  background: rgba(5,1,15,0.58);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid rgba(253,164,175,0.22);
+  border-radius: 20px;
+  box-shadow:
+    0 0 0 1px rgba(192,132,252,0.08),
+    0 8px 50px rgba(100,20,60,0.35),
+    inset 0 1px 0 rgba(255,255,255,0.07);
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
+  transition: opacity 1.8s ease, transform 1.8s ease;
+}
+
+.juntos-msg p {
+  color: var(--clr-silver);
+  font-size: clamp(15px, 3.2vw, 22px);
+  line-height: 1.85;
+  font-style: italic;
+  font-family: var(--font-title);
+  text-shadow: 0 0 18px rgba(253,164,175,0.6), 0 0 35px rgba(192,132,252,0.4);
+  min-height: 60px;
+}
+
+/* Botón continuar escena 11 */
+#btn-juntos {
+  margin-top: 28px;
+  padding: 11px 38px;
+  background: transparent;
+  border: 1px solid rgba(253,164,175,0.45);
+  border-radius: 50px;
+  color: var(--clr-rose);
+  font-size: clamp(11px,2.2vw,13px);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all 0.3s ease;
+  position: relative; overflow: hidden;
+  opacity: 0;
+  transition: opacity 1s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
+#btn-juntos::before {
+  content:''; position:absolute; inset:0;
+  background: linear-gradient(135deg,rgba(253,164,175,0.12),rgba(192,132,252,0.12));
+  opacity:0; transition:opacity 0.3s ease; border-radius:50px;
+}
+#btn-juntos:hover::before { opacity:1; }
+#btn-juntos:hover {
+  border-color: rgba(253,164,175,0.9);
+  color: #fff;
+  box-shadow: 0 0 20px rgba(253,164,175,0.35);
+}
+
+/* Luciérnagas canvas overlay en escena 11 y 13 */
+#firefly-canvas {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 9;
+  opacity: 0;
+  transition: opacity 2s ease;
+}
+
+/* ============================================================
+   ESCENA 12 — MENSAJE FINAL INDEPENDIENTE
+   ============================================================ */
+#scene12 {
+  background: radial-gradient(ellipse at 50% 40%, #1a0a20 0%, #07011a 60%, #000 100%);
+  cursor: pointer;
+}
+
+.final-overlay-msg {
+  position: relative; z-index: 5;
+  text-align: center;
+  max-width: min(720px, 88vw);
+  padding: 0 24px;
+  color: var(--clr-silver);
+  font-size: clamp(17px, 3.8vw, 28px);
+  line-height: 1.9;
+  font-style: italic;
+  font-family: var(--font-title);
+  text-shadow:
+    0 0 15px rgba(192,132,252,0.8),
+    0 0 35px rgba(147,51,234,0.5),
+    0 0 60px rgba(107,33,168,0.3);
+  opacity: 0;
+  animation: none;
+}
+
+/* ============================================================
+   ESCENA 13 — FINAL CON HURONES (sobre paisaje romántico)
+   ============================================================ */
+#scene13 { overflow: hidden; }
+
+/* Fondo: mismo paisaje juntos con zoom suave hacia zona iluminada */
+#scene13 .scene-bg {
+  animation: finalZoom 14s ease forwards;
+}
+@keyframes finalZoom {
+  0%   { transform: scale(1.08) translateY(0); }
+  100% { transform: scale(1.18) translateY(-4%); }
+}
+
+/* Overlay rosa-dorado cálido que se intensifica */
+#scene13 .overlay-final {
+  background: radial-gradient(ellipse 80% 60% at 50% 60%,
+    rgba(253,200,180,0.08) 0%,
+    rgba(200,120,160,0.06) 40%,
+    rgba(3,1,10,0.45) 100%);
+  animation: warmGlow 6s ease-in-out infinite;
+}
+@keyframes warmGlow {
+  0%,100% { opacity: 0.8; }
+  50%     { opacity: 1; }
+}
+
+/* Mensaje final absoluto */
+.final-absolute-msg {
+  position: absolute;
+  top: clamp(28px, 7vw, 60px);
+  left: 50%; transform: translateX(-50%);
+  z-index: 8;
+  text-align: center;
+  max-width: min(700px, 88vw);
+  width: 88vw;
+  color: var(--clr-silver);
+  font-size: clamp(15px, 3.2vw, 22px);
+  line-height: 1.9;
+  font-style: italic;
+  font-family: var(--font-title);
+  text-shadow:
+    0 0 20px rgba(253,164,175,0.7),
+    0 0 40px rgba(192,132,252,0.4);
+  opacity: 0;
+}
+
+.final-absolute-msg .msg-fin {
+  display: block;
+  margin-top: 18px;
+  font-size: clamp(13px, 2.5vw, 18px);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--clr-rose);
+  text-shadow: 0 0 15px rgba(253,164,175,0.8);
+  opacity: 0;
+  font-style: normal;
+}
+
+.final-msg {
+  display: none; /* Ocultamos el antiguo — no se usa en escena 13 */
+}
+
+/* Botón reiniciar */
+#btn-restart {
+  position: absolute;
+  bottom: clamp(20px,6vw,40px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 38px;
+  background: transparent;
+  border: 1px solid rgba(253,164,175,0.45);
+  border-radius: 50px;
+  color: var(--clr-rose);
+  font-size: clamp(11px,2.2vw,13px);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all 0.3s ease;
+  z-index: 30;
+  opacity: 0;
+}
+#btn-restart::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,rgba(253,164,175,0.15),rgba(192,132,252,0.15));
+  opacity:0; transition:opacity 0.3s ease; border-radius:50px;
+}
+#btn-restart:hover::before { opacity:1; }
+#btn-restart:hover {
+  border-color: rgba(253,164,175,0.9);
+  color: #fff;
+  box-shadow: 0 0 20px rgba(253,164,175,0.4);
+}
+
+
+/* ============================================================
+   HURONES ANIMADOS (SVG + CSS)
+   ============================================================ */
+#ferrets-stage {
+  position:absolute;
+  bottom: clamp(20px, 5vw, 60px);
+  left:0; right:0;
+  display:flex;
+  justify-content:center;
+  align-items:flex-end;
+  gap:0;
+  z-index:20;
+  pointer-events:none;
+}
+
+.ferret-wrap {
+  position:relative;
+  width: clamp(70px, 16vw, 130px);
+  height: clamp(70px, 16vw, 130px);
+  opacity:0;
+}
+
+#ferret-left  { transform:translateX(clamp(-200px,-40vw,-100px)); }
+#ferret-right { transform:translateX(clamp(100px,40vw,200px)); }
+
+#ferret-left.walk  { animation:walkLeft  3.2s ease forwards; }
+#ferret-right.walk { animation:walkRight 3.2s ease forwards; }
+
+@keyframes walkLeft  {
+  0%   { transform:translateX(clamp(-200px,-40vw,-100px)); opacity:1; }
+  100% { transform:translateX(clamp(-50px,-9vw,-28px)); opacity:1; }
+}
+@keyframes walkRight {
+  0%   { transform:translateX(clamp(100px,40vw,200px)); opacity:1; }
+  100% { transform:translateX(clamp(28px,9vw,50px)); opacity:1; }
+}
+
+/* Después de sentarse: micro-flotación */
+.ferret-wrap.seated {
+  animation: ferretsFloat 4s ease-in-out infinite;
+}
+@keyframes ferretsFloat {
+  0%,100% { transform: translateX(var(--fx,0px)) translateY(0); }
+  50%     { transform: translateX(var(--fx,0px)) translateY(-5px); }
+}
+
+.ferret-svg { width:100%; height:100%; }
+
+/* Cola de hurón */
+.f-tail { animation: tailWag 0.7s ease-in-out infinite alternate; transform-origin: 20% 60%; }
+@keyframes tailWag { from{ transform:rotate(-8deg); } to{ transform:rotate(8deg); } }
+
+/* Piernas */
+.f-leg-f { animation:legF 0.4s ease-in-out infinite alternate; transform-origin:50% 20%; }
+.f-leg-b { animation:legB 0.4s ease-in-out infinite alternate 0.2s; transform-origin:50% 20%; }
+@keyframes legF { from{transform:rotate(-12deg);}to{transform:rotate(12deg);} }
+@keyframes legB { from{transform:rotate(10deg);}to{transform:rotate(-10deg);} }
+
+/* Cabeza — movimiento suave */
+.f-head { animation: headBob 5s ease-in-out infinite; transform-origin: 75px 45px; }
+@keyframes headBob {
+  0%,100% { transform: rotate(0deg); }
+  30%     { transform: rotate(-4deg); }
+  70%     { transform: rotate(3deg); }
+}
+
+/* Parpado */
+.f-eye-lid { animation:blink 4s ease-in-out infinite; }
+@keyframes blink {
+  0%,94%,100%{ transform:scaleY(1); }
+  96%,98%    { transform:scaleY(0.05); }
+}
+
+/* ============================================================
+   CORAZÓN FINAL
+   ============================================================ */
+#heart-final {
+  position:absolute;
+  bottom: clamp(120px, 24vw, 200px);
+  left:50%; transform:translateX(-50%);
+  font-size:clamp(28px,7vw,48px);
+  opacity:0;
+  z-index:21;
+  animation:heartBeat 1.6s ease-in-out infinite;
+  text-shadow:0 0 25px rgba(253,164,175,0.9), 0 0 50px rgba(253,164,175,0.5);
+}
+
+@keyframes heartBeat {
+  0%,100%{transform:translateX(-50%) scale(1);}
+  30%    {transform:translateX(-50%) scale(1.25);}
+  60%    {transform:translateX(-50%) scale(1);}
+  80%    {transform:translateX(-50%) scale(1.14);}
+}
+
+/* ============================================================
+   UTILIDADES
+   ============================================================ */
+.overlay-dark {
+  background:linear-gradient(to top, rgba(3,1,10,0.7) 0%, rgba(3,1,10,0.1) 60%, transparent 100%);
+}
+
+.overlay-purple {
+  background:radial-gradient(ellipse at 50% 50%,
+    rgba(107,33,168,0.25) 0%,
+    rgba(3,1,10,0.6) 100%);
+}
+
+.overlay-warm {
+  background:radial-gradient(ellipse at 50% 30%,
+    rgba(253,164,175,0.1) 0%,
+    rgba(3,1,10,0.5) 100%);
+}
+
+/* Estado inicial de textos */
+.typewriter-text { display:inline; }
+
+/* ============================================================
+   RESPONSIVE — MOBILE PORTRAIT  (≤ 480px)
+   ============================================================ */
+@media (max-width: 480px) {
+  /* Hint */
+  #click-hint { bottom: 20px; font-size: 10px; letter-spacing: 0.18em; }
+
+  /* Escena 1 título */
+  .s1-title h1 { font-size: 12px; letter-spacing: 0.25em; }
+
+  /* Mensajes centrales */
+  .scene-msg {
+    padding: 18px 20px;
+    max-width: 94vw;
+  }
+  .scene-msg p { font-size: clamp(15px, 4.2vw, 19px); line-height: 1.65; }
+
+  /* Glass panel escena 8 */
+  .glass-panel {
+    padding: 22px 20px;
+    max-width: 92vw;
+    border-radius: 16px;
+  }
+  .glass-panel .panel-title { font-size: 10px; letter-spacing: 0.25em; margin-bottom: 14px; }
+  .glass-panel .panel-text  { font-size: clamp(14px,4vw,17px); min-height: 60px; }
+  #btn-continuar { padding: 10px 28px; font-size: 11px; margin-top: 22px; }
+
+  /* Gacha escena 10 */
+  .gacha-msg { padding: 18px 18px; max-width: 92vw; }
+  .gacha-msg p { font-size: clamp(14px,4vw,18px); min-height: 50px; }
+
+  /* Juntos escena 11 */
+  .juntos-msg {
+    bottom: clamp(56px, 15vw, 90px);
+    width: 92vw;
+    max-width: 92vw;
+    padding: 18px 18px;
+    border-radius: 16px;
+  }
+  .juntos-msg p { font-size: clamp(14px,4vw,18px); min-height: 44px; }
+  #btn-juntos { padding: 10px 28px; font-size: 10px; margin-top: 18px; }
+
+  /* Final mensaje escena 12 */
+  .final-overlay-msg { font-size: clamp(16px,4.5vw,22px); padding: 0 18px; }
+
+  /* Final escena 13 — mensaje arriba más compacto */
+  .final-absolute-msg {
+    top: clamp(16px, 4vw, 30px);
+    max-width: 92vw;
+    width: 92vw;
+    font-size: clamp(13px,3.8vw,17px);
+    line-height: 1.7;
+  }
+  .final-absolute-msg .msg-fin { font-size: clamp(11px,3vw,14px); margin-top: 12px; }
+
+  /* Hurones — más pequeños y más juntos */
+  .ferret-wrap { width: clamp(55px, 15vw, 80px); height: clamp(55px, 15vw, 80px); }
+  #ferrets-stage { bottom: clamp(10px, 3vw, 24px); }
+
+  /* Corazón */
+  #heart-final { bottom: clamp(90px, 22vw, 130px); font-size: clamp(22px, 7vw, 36px); }
+
+  /* Botón restart */
+  #btn-restart { padding: 10px 28px; font-size: 10px; bottom: clamp(14px, 4vw, 24px); }
+
+  /* Orbe */
+  #light-orb { width: clamp(70px, 22vw, 110px); height: clamp(70px, 22vw, 110px); }
+
+  /* Anillos rift — escalar para móvil */
+  .rift-ring:nth-child(3) { width: min(72vw,300px) !important; height: min(72vw,300px) !important; }
+  .rift-ring:nth-child(4) { width: min(58vw,240px) !important; height: min(58vw,240px) !important; }
+  .rift-ring:nth-child(5) { width: min(44vw,180px) !important; height: min(44vw,180px) !important; }
+}
+
+/* ============================================================
+   RESPONSIVE — LANDSCAPE MÓVIL  (altura ≤ 500px)
+   ============================================================ */
+@media (max-height: 500px) and (orientation: landscape) {
+  /* Reducir todo lo vertical */
+  .scene-msg { padding: 10px 28px; }
+  .scene-msg p { font-size: clamp(13px, 2.8vh, 18px); line-height: 1.5; }
+
+  .glass-panel { padding: 14px 24px; }
+  .glass-panel .panel-text { font-size: clamp(12px, 2.5vh, 16px); min-height: 40px; }
+  #btn-continuar { padding: 8px 24px; margin-top: 14px; }
+
+  .gacha-msg { padding: 12px 20px; }
+  .gacha-msg p { font-size: clamp(12px, 2.5vh, 16px); min-height: 36px; }
+
+  .juntos-msg {
+    bottom: clamp(44px, 10vh, 70px);
+    padding: 12px 20px;
+    width: 70vw;
+    max-width: 70vw;
+  }
+  .juntos-msg p { font-size: clamp(12px, 2.5vh, 16px); min-height: 36px; }
+  #btn-juntos { padding: 8px 24px; margin-top: 12px; }
+
+  .final-overlay-msg { font-size: clamp(14px, 3.5vh, 20px); }
+
+  .final-absolute-msg {
+    top: 8px;
+    font-size: clamp(11px, 2.5vh, 15px);
+    line-height: 1.5;
+  }
+  .final-absolute-msg .msg-fin { margin-top: 8px; font-size: 11px; }
+
+  .ferret-wrap { width: clamp(44px, 10vh, 70px); height: clamp(44px, 10vh, 70px); }
+  #ferrets-stage { bottom: 6px; }
+  #heart-final { bottom: clamp(70px, 16vh, 100px); font-size: clamp(20px, 5vh, 32px); }
+  #btn-restart { bottom: 8px; padding: 8px 24px; }
+
+  #click-hint { bottom: 10px; }
+}
+
+/* ============================================================
+   RESPONSIVE — TABLET  (481px – 1024px)
+   ============================================================ */
+@media (min-width: 481px) and (max-width: 1024px) {
+  .scene-msg p { font-size: clamp(16px, 2.8vw, 22px); }
+
+  .glass-panel { max-width: min(580px, 86vw); }
+  .glass-panel .panel-text { font-size: clamp(15px, 2.4vw, 19px); }
+
+  .gacha-msg { max-width: min(600px, 86vw); }
+  .gacha-msg p { font-size: clamp(15px, 2.4vw, 20px); }
+
+  .juntos-msg {
+    bottom: clamp(70px, 12vw, 110px);
+    max-width: min(620px, 86vw);
+    width: 86vw;
+  }
+  .juntos-msg p { font-size: clamp(15px, 2.4vw, 20px); }
+
+  .final-absolute-msg { font-size: clamp(15px, 2.4vw, 20px); }
+  .ferret-wrap { width: clamp(80px, 13vw, 110px); height: clamp(80px, 13vw, 110px); }
+}
+
+/* ============================================================
+   RESPONSIVE — DESKTOP GRANDE  (≥ 1440px)
+   ============================================================ */
+@media (min-width: 1440px) {
+  .scene-msg { max-width: 760px; padding: 32px 64px; }
+  .scene-msg p { font-size: 24px; }
+
+  .glass-panel { max-width: 700px; padding: 52px 64px; }
+  .glass-panel .panel-text { font-size: 20px; }
+
+  .gacha-msg { max-width: 720px; padding: 44px 60px; }
+  .gacha-msg p { font-size: 21px; }
+
+  .juntos-msg { max-width: 740px; padding: 48px 60px; bottom: 120px; }
+  .juntos-msg p { font-size: 21px; }
+
+  .final-overlay-msg { font-size: 26px; max-width: 780px; }
+  .final-absolute-msg { font-size: 21px; max-width: 740px; }
+
+  .ferret-wrap { width: 130px; height: 130px; }
+  #heart-final { font-size: 48px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     CANVAS DE EFECTOS GLOBALES
+     ============================================================ -->
+<canvas id="fx-canvas"></canvas>
+<canvas id="firefly-canvas"></canvas>
+
+<!-- ============================================================
+     FLASH DE TRANSICIÓN
+     ============================================================ -->
+<div id="flash"></div>
+<!-- CAPA NEGRA CINEMATOGRÁFICA -->
+<div id="cinema-veil"></div>
+
+<!-- ============================================================
+     HINT DE CLIC
+     ============================================================ -->
+<div id="click-hint">toca para continuar</div>
+
+<!-- ============================================================
+     ESCENARIO
+     ============================================================ -->
+<div id="stage">
+
+  <!-- ESCENA 1 — Cielo estrellado -->
+  <div id="scene1" class="scene">
+    <div class="s1-title">
+      <h1>toca la pantalla para comenzar</h1>
+    </div>
+  </div>
+
+  <!-- ESCENA 2 — Dragón y princesa -->
+  <div id="scene2" class="scene">
+    <div class="scene-bg" id="bg2"></div>
+    <div class="scene-overlay overlay-dark"></div>
+  </div>
+
+  <!-- ESCENA 3 — Primer mensaje -->
+  <div id="scene3" class="scene" style="cursor:pointer;">
+    <div class="scene-bg" id="bg3"></div>
+    <div class="scene-overlay overlay-purple"></div>
+    <div class="scene-msg" id="wrap3" style="opacity:0;transform:translateY(14px);">
+      <p class="glow-text" id="text3"></p>
+    </div>
+  </div>
+
+  <!-- ESCENA 4 — Segundo mensaje -->
+  <div id="scene4" class="scene" style="cursor:pointer;">
+    <div class="scene-bg" id="bg4"></div>
+    <div class="scene-overlay overlay-purple"></div>
+    <div class="scene-msg" style="opacity:0;transition:opacity 1.8s ease;" id="wrap4">
+      <p id="text4"></p>
+    </div>
+  </div>
+
+  <!-- ESCENA 5 — Tercer mensaje -->
+  <div id="scene5" class="scene" style="cursor:pointer;">
+    <div class="scene-bg" id="bg5"></div>
+    <div class="scene-overlay overlay-dark"></div>
+    <div class="scene-msg" style="opacity:0;transition:opacity 2s ease 0.5s;" id="wrap5">
+      <p id="text5" style="color:var(--clr-silver);font-size:clamp(16px,3.5vw,26px);line-height:1.7;font-style:italic;font-family:var(--font-title);"></p>
+    </div>
+  </div>
+
+  <!-- ESCENA 6 — Brecha dimensional -->
+  <div id="scene6" class="scene">
+    <div class="scene-bg" id="bg6"></div>
+    <div class="scene-overlay overlay-purple"></div>
+    <!-- Anillos del rift -->
+    <div class="rift-ring" style="width:min(55vw,380px);height:min(55vw,380px);animation-delay:0s;"></div>
+    <div class="rift-ring" style="width:min(45vw,310px);height:min(45vw,310px);animation-delay:0.6s;"></div>
+    <div class="rift-ring" style="width:min(35vw,240px);height:min(35vw,240px);animation-delay:1.2s;"></div>
+    <div class="scene-msg" style="opacity:0;transition:opacity 2s ease 0.8s;" id="wrap6">
+      <p id="text6" class="glow-text" style="color:var(--clr-lavender);font-size:clamp(15px,3vw,22px);line-height:1.7;font-style:italic;font-family:var(--font-title);"></p>
+    </div>
+  </div>
+
+  <!-- ESCENA 7 — Orbe de luz interactivo -->
+  <div id="scene7" class="scene">
+    <div class="scene-bg" id="bg7"></div>
+    <div class="scene-overlay overlay-purple"></div>
+    <div id="light-orb"></div>
+    <p style="position:absolute;bottom:clamp(60px,12vw,100px);left:50%;transform:translateX(-50%);color:rgba(226,217,243,0.45);font-size:clamp(11px,2.2vw,13px);letter-spacing:0.3em;text-transform:uppercase;z-index:20;animation:hintPulse 2.5s ease-in-out infinite;white-space:nowrap;">toca la luz</p>
+  </div>
+
+  <!-- ESCENA 8 — Panel dimensión -->
+  <div id="scene8" class="scene">
+    <div class="scene-overlay" style="background:radial-gradient(ellipse at 50% 50%,rgba(107,33,168,0.3) 0%,rgba(3,1,10,0.95) 100%);"></div>
+    <div class="glass-panel" id="glass-panel" style="opacity:0;transform:translateY(30px);transition:opacity 1.5s ease, transform 1.5s ease;">
+      <div class="panel-title">✦ &nbsp; mensaje desde la dimensión &nbsp; ✦</div>
+      <p class="panel-text" id="panel-text"></p>
+      <button id="btn-continuar">Continuar</button>
+    </div>
+  </div>
+
+  <!-- ESCENA 9 — Prado de cerezos -->
+  <div id="scene9" class="scene">
+    <div class="scene-bg" id="bg9"></div>
+    <div class="scene-overlay overlay-warm"></div>
+    <!-- Partículas luminosas extra para cerezos (canvas las maneja) -->
+  </div>
+
+  <!-- ESCENA 10 — Gacha final -->
+  <div id="scene10" class="scene">
+    <div class="scene-bg" id="bg10"></div>
+    <div class="scene-overlay" style="background:radial-gradient(ellipse at 50% 80%,rgba(253,164,175,0.12) 0%,rgba(3,1,10,0.55) 100%);"></div>
+    <div class="gacha-msg" id="gacha-panel" style="opacity:0;transform:translateY(18px);transition:opacity 1.8s ease, transform 1.8s ease;">
+      <p id="gacha-text"></p>
+    </div>
+  </div>
+
+  <!-- ESCENA 11 — Juntos (paisaje principal) -->
+  <div id="scene11" class="scene">
+    <div class="scene-bg" id="bg11"></div>
+    <div class="scene-overlay overlay-juntos"></div>
+    <div id="juntos-mist"></div>
+    <!-- Panel mensaje de encuentro -->
+    <div class="juntos-msg" id="juntos-panel">
+      <p id="juntos-text"></p>
+      <button id="btn-juntos">Continuar</button>
+    </div>
+  </div>
+
+  <!-- ESCENA 12 — Mensaje final independiente -->
+  <div id="scene12" class="scene">
+    <p class="final-overlay-msg" id="final-overlay-text"></p>
+  </div>
+
+  <!-- ESCENA 13 — Final con hurones sobre el paisaje romántico -->
+  <div id="scene13" class="scene">
+    <div class="scene-bg" id="bg13"></div>
+    <div class="scene-overlay overlay-final"></div>
+
+    <!-- Mensaje final absoluto (arriba) -->
+    <div class="final-absolute-msg" id="final-absolute-msg">
+      Porque en cada vida, en cada historia,<br>en cada universo...<br><br>
+      siempre volvería a encontrarte.
+      <span class="msg-fin" id="msg-fin-text">— Fin —</span>
+    </div>
+
+    <!-- Corazón -->
+    <div id="heart-final">🩷</div>
+
+    <!-- Hurones -->
+    <div id="ferrets-stage">
+      <div class="ferret-wrap" id="ferret-left">
+        <svg class="ferret-svg" viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg">
+          <g class="f-tail">
+            <ellipse cx="18" cy="62" rx="14" ry="7" fill="#c8a878" transform="rotate(-25,18,62)"/>
+            <ellipse cx="14" cy="68" rx="9" ry="5" fill="#e8c898" transform="rotate(-25,14,68)"/>
+          </g>
+          <ellipse cx="50" cy="58" rx="28" ry="18" fill="#d4a86a"/>
+          <ellipse cx="52" cy="60" rx="17" ry="12" fill="#f0d09a"/>
+          <g class="f-leg-b">
+            <ellipse cx="30" cy="72" rx="7" ry="10" fill="#c4985a" transform="rotate(10,30,72)"/>
+            <ellipse cx="28" cy="82" rx="5" ry="4" fill="#a07840"/>
+          </g>
+          <g class="f-leg-f">
+            <ellipse cx="70" cy="70" rx="6" ry="10" fill="#c4985a" transform="rotate(-8,70,70)"/>
+            <ellipse cx="72" cy="80" rx="5" ry="4" fill="#a07840"/>
+          </g>
+          <ellipse cx="70" cy="46" rx="12" ry="10" fill="#d4a86a"/>
+          <g class="f-head">
+            <ellipse cx="76" cy="34" rx="16" ry="14" fill="#d4a86a"/>
+            <ellipse cx="80" cy="36" rx="10" ry="9" fill="#f5e8c8"/>
+            <ellipse cx="66" cy="22" rx="6" ry="8" fill="#c4905a"/>
+            <ellipse cx="66" cy="22" rx="3.5" ry="5" fill="#e8a880"/>
+            <ellipse cx="84" cy="20" rx="5" ry="7" fill="#c4905a"/>
+            <ellipse cx="84" cy="20" rx="3" ry="4.5" fill="#e8a880"/>
+            <g class="f-eye-lid" style="transform-origin:82px 33px;">
+              <circle cx="82" cy="33" r="5" fill="#1a0a05"/>
+              <circle cx="82" cy="33" r="5" fill="none" stroke="#4a2808" stroke-width="1"/>
+              <circle cx="83.5" cy="31.5" r="1.5" fill="#fff" opacity="0.8"/>
+            </g>
+            <ellipse cx="88" cy="38" rx="3" ry="2" fill="#c06888"/>
+            <line x1="91" y1="37" x2="100" y2="35" stroke="#e8d8b8" stroke-width="0.8" opacity="0.7"/>
+            <line x1="91" y1="39" x2="100" y2="40" stroke="#e8d8b8" stroke-width="0.8" opacity="0.7"/>
+            <line x1="91" y1="38" x2="99"  y2="38" stroke="#e8d8b8" stroke-width="0.8" opacity="0.7"/>
+          </g>
+        </svg>
+      </div>
+
+      <div class="ferret-wrap" id="ferret-right">
+        <svg class="ferret-svg" viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg" style="transform:scaleX(-1);">
+          <g class="f-tail">
+            <ellipse cx="18" cy="62" rx="14" ry="7" fill="#a06858" transform="rotate(-25,18,62)"/>
+            <ellipse cx="14" cy="68" rx="9" ry="5" fill="#c08878" transform="rotate(-25,14,68)"/>
+          </g>
+          <ellipse cx="50" cy="58" rx="28" ry="18" fill="#b87868"/>
+          <ellipse cx="52" cy="60" rx="17" ry="12" fill="#dca898"/>
+          <g class="f-leg-b">
+            <ellipse cx="30" cy="72" rx="7" ry="10" fill="#a86858" transform="rotate(10,30,72)"/>
+            <ellipse cx="28" cy="82" rx="5" ry="4" fill="#885040"/>
+          </g>
+          <g class="f-leg-f">
+            <ellipse cx="70" cy="70" rx="6" ry="10" fill="#a86858" transform="rotate(-8,70,70)"/>
+            <ellipse cx="72" cy="80" rx="5" ry="4" fill="#885040"/>
+          </g>
+          <ellipse cx="70" cy="46" rx="12" ry="10" fill="#b87868"/>
+          <g class="f-head">
+            <ellipse cx="76" cy="34" rx="16" ry="14" fill="#b87868"/>
+            <ellipse cx="80" cy="36" rx="10" ry="9" fill="#e8ccc0"/>
+            <ellipse cx="66" cy="22" rx="6" ry="8" fill="#a86858"/>
+            <ellipse cx="66" cy="22" rx="3.5" ry="5" fill="#d89888"/>
+            <ellipse cx="84" cy="20" rx="5" ry="7" fill="#a86858"/>
+            <ellipse cx="84" cy="20" rx="3" ry="4.5" fill="#d89888"/>
+            <g class="f-eye-lid" style="transform-origin:82px 33px;">
+              <circle cx="82" cy="33" r="5" fill="#1a0a05"/>
+              <circle cx="82" cy="33" r="5" fill="none" stroke="#3a1808" stroke-width="1"/>
+              <circle cx="83.5" cy="31.5" r="1.5" fill="#fff" opacity="0.8"/>
+            </g>
+            <ellipse cx="88" cy="38" rx="3" ry="2" fill="#d06898"/>
+            <line x1="91" y1="37" x2="100" y2="35" stroke="#e8d0c8" stroke-width="0.8" opacity="0.7"/>
+            <line x1="91" y1="39" x2="100" y2="40" stroke="#e8d0c8" stroke-width="0.8" opacity="0.7"/>
+            <line x1="91" y1="38" x2="99"  y2="38" stroke="#e8d0c8" stroke-width="0.8" opacity="0.7"/>
+          </g>
+        </svg>
+      </div>
+    </div><!-- /ferrets-stage -->
+
+    <!-- Botón reiniciar -->
+    <button id="btn-restart">✦ Volver a comenzar ✦</button>
+  </div><!-- /scene13 -->
+
+</div><!-- /stage -->
+
+<script>
+/* ============================================================
+   ██████████████████████████████████████████████████████████
+   CONFIGURACIÓN — EDITA AQUÍ
+   ██████████████████████████████████████████████████████████
+   ============================================================ */
+
+// Rutas de imágenes (reemplaza cuando tengas tus fotos)
+const ESCENAS = {
+  2:  "/img/1.jpeg",
+  3:  "/img/2.jpeg",
+  4:  "/img/3.jpeg",
+  5:  "/img/5.jpeg",
+  6:  "/img/6.jpeg",
+  7:  "/img/7.jpeg",
+  9:  "/img/8.jpeg",          // ESCENA_CEREZOS — prado de cerezos
+  10: "/img/9.jpeg",          // ESCENA_GACHA — dos personajes gacha
+  11: "/img/10.jpeg", // ESCENA_JUNTOS — paisaje mágico con personajes
+   // ESCENA_FINAL — mismo paisaje para los hurones
+};
+
+// ── Mensajes personalizables ──────────────────────────────
+const textoEscena3 = "Dicen que existen infinitos universos, pero en todos ellos hay algo que nunca cambia.";
+const textoEscena4 = "Y en cada uno de esos universos, volveria a encontrarte una vez mas.";
+const textoEscena5 = "Y aunque los camninos fueran distintos, mi corzon siempre encontraria la forma de llegar hasta ti.";
+const textoEscena6 = "Y si pudiera vivir mil vidas...";
+const mensajeDimension   = "Si has llegado hasta aqui, es porque queria compartir contigo algo que va mas alla de la spalabras. Gracias por cada sonrisa, cada momento y cada recuerdo. Porque desde que llegaste a mi vuida muchas cosas cambiaron y mejoraron";
+const mensajeEncuentro   = `Y despues de atravesar estrellas, mundos y dimensiones... Solo habia un lygar al que queria llegar.`;
+const mensajeEncuentroFinal = `No importa cuantos caminos existan, ni cuantos universos haya. Mientras pueda caminar a tu lado, siempre sentire que estoy en casa y en mi lugar favorito.`;
+const mensajeFinal    = `Porque en cada vida, en cada historia,
+y en cada universo...
+
+Siempre serás mi elección.`;
+
+/* ============================================================
+   FIN CONFIGURACIÓN
+   ============================================================ */
+
+// Asignar imágenes de fondo
+Object.entries(ESCENAS).forEach(([num, src]) => {
+  const el = document.getElementById(`bg${num}`);
+  if (el) el.style.backgroundImage = `url('${src}')`;
+});
+
+// Limpiar textos que usan typewriter al entrar
+document.getElementById('text3').textContent    = '';
+document.getElementById('text4').textContent    = '';
+document.getElementById('text5').textContent    = '';
+document.getElementById('text6').textContent    = '';
+document.getElementById('gacha-text').textContent  = '';   // typewriter al entrar
+document.getElementById('juntos-text').textContent = '';   // typewriter al entrar
+document.getElementById('final-overlay-text').textContent = '';
+
+/* ============================================================
+   LUCIÉRNAGAS (canvas separado)
+   ============================================================ */
+const ffCanvas  = document.getElementById('firefly-canvas');
+const ffCtx     = ffCanvas.getContext('2d');
+let ffW, ffH;
+
+function resizeFF() {
+  ffW = ffCanvas.width  = window.innerWidth;
+  ffH = ffCanvas.height = window.innerHeight;
+}
+resizeFF();
+window.addEventListener('resize', resizeFF);
+
+const FIREFLIES = [];
+const FF_COUNT  = 55;
+
+class Firefly {
+  constructor() { this.reset(true); }
+  reset(init=false) {
+    this.x    = Math.random() * (ffW||window.innerWidth);
+    this.y    = init ? Math.random() * (ffH||window.innerHeight) : Math.random() * (ffH||window.innerHeight);
+    this.r    = Math.random() * 2.8 + 0.8;
+    this.phase= Math.random() * Math.PI * 2;
+    this.speed= Math.random() * 0.004 + 0.002;
+    this.vx   = (Math.random()-0.5) * 0.45;
+    this.vy   = (Math.random()-0.5) * 0.45 - 0.12;
+    this.hue  = Math.random() * 40 + 55; // amarillo-verde cálido
+  }
+  update() {
+    this.phase += this.speed;
+    this.x += this.vx + Math.sin(this.phase * 1.3) * 0.5;
+    this.y += this.vy + Math.cos(this.phase) * 0.3;
+    if (this.x < -10 || this.x > ffW+10 || this.y < -10 || this.y > ffH+10) this.reset();
+  }
+  draw(ctx) {
+    const alpha = 0.3 + 0.7 * Math.abs(Math.sin(this.phase));
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.9;
+    ctx.shadowColor = `hsl(${this.hue},100%,70%)`;
+    ctx.shadowBlur  = 12;
+    ctx.fillStyle   = `hsl(${this.hue},100%,85%)`;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+for (let i=0; i<FF_COUNT; i++) FIREFLIES.push(new Firefly());
+
+let showFireflies = false;
+
+function drawFF() {
+  ffCtx.clearRect(0, 0, ffW, ffH);
+  if (showFireflies) {
+    FIREFLIES.forEach(f => { f.update(); f.draw(ffCtx); });
+  }
+  requestAnimationFrame(drawFF);
+}
+drawFF();
+
+/* ============================================================
+   CANVAS & PARTÍCULAS
+   ============================================================ */
+const fxCanvas = document.getElementById('fx-canvas');
+const fxCtx    = fxCanvas.getContext('2d');
+let W, H;
+
+function resizeCanvas() {
+  W = fxCanvas.width  = window.innerWidth;
+  H = fxCanvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// ─── Pool de estrellas/partículas ────────────────────────
+const STARS = [];
+const STAR_COUNT = 280;
+
+class Star {
+  constructor() { this.reset(true); }
+  reset(init=false) {
+    this.x     = Math.random() * W;
+    this.y     = init ? Math.random() * H : -4;
+    this.r     = Math.random() * 1.6 + 0.3;
+    this.alpha = Math.random() * 0.7 + 0.2;
+    this.speed = Math.random() * 0.25 + 0.05;
+    this.twinkleSpeed = Math.random() * 0.02 + 0.005;
+    this.twinklePhase = Math.random() * Math.PI * 2;
+  }
+  update() {
+    this.twinklePhase += this.twinkleSpeed;
+    this.alpha = 0.3 + 0.5 * Math.abs(Math.sin(this.twinklePhase));
+    this.y += this.speed;
+    if (this.y > H + 4) this.reset();
+  }
+  draw(ctx) {
+    ctx.save();
+    ctx.globalAlpha = this.alpha;
+    ctx.fillStyle = '#e2d9f3';
+    ctx.shadowColor = '#c084fc';
+    ctx.shadowBlur = 4;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+for (let i=0; i<STAR_COUNT; i++) STARS.push(new Star());
+
+// ─── Pool de pétalos de cerezo ───────────────────────────
+const PETALS = [];
+const PETAL_COUNT = 55;
+
+class Petal {
+  constructor() { this.reset(true); }
+  reset(init=false) {
+    this.x     = Math.random() * W;
+    this.y     = init ? Math.random() * H : -12;
+    this.r     = Math.random() * 5 + 3;
+    this.rot   = Math.random() * Math.PI * 2;
+    this.rotV  = (Math.random() - 0.5) * 0.04;
+    this.speedY= Math.random() * 1.2 + 0.5;
+    this.speedX= (Math.random() - 0.5) * 0.8;
+    this.alpha = Math.random() * 0.6 + 0.3;
+    this.sway  = Math.random() * Math.PI * 2;
+    this.swayS = Math.random() * 0.015 + 0.005;
+    this.swayA = Math.random() * 1.2 + 0.5;
+    this.hue   = Math.random() * 30 + 340; // rosa a rojo pálido
+  }
+  update() {
+    this.sway += this.swayS;
+    this.x    += this.speedX + Math.sin(this.sway) * this.swayA;
+    this.y    += this.speedY;
+    this.rot  += this.rotV;
+    if (this.y > H + 15) this.reset();
+  }
+  draw(ctx) {
+    ctx.save();
+    ctx.globalAlpha = this.alpha;
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rot);
+    // Forma de pétalo elíptico
+    ctx.beginPath();
+    ctx.scale(1, 0.5);
+    ctx.arc(0, 0, this.r, 0, Math.PI*2);
+    ctx.fillStyle = `hsl(${this.hue},85%,80%)`;
+    ctx.shadowColor = `hsl(${this.hue},70%,70%)`;
+    ctx.shadowBlur = 4;
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+for (let i=0; i<PETAL_COUNT; i++) PETALS.push(new Petal());
+
+// ─── Pool de partículas de energía (dimensión) ────────────
+const ENERGY = [];
+const ENERGY_COUNT = 60;
+
+class EnergyParticle {
+  constructor() { this.reset(); }
+  reset() {
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = Math.random() * Math.min(W,H) * 0.35 + 40;
+    this.cx = W/2; this.cy = H/2;
+    this.x  = this.cx + Math.cos(angle) * dist;
+    this.y  = this.cy + Math.sin(angle) * dist;
+    this.vx = (Math.random()-0.5)*0.6;
+    this.vy = (Math.random()-0.5)*0.6 - 0.3;
+    this.r  = Math.random() * 2.5 + 0.8;
+    this.alpha = Math.random() * 0.8 + 0.2;
+    this.life  = 0;
+    this.maxLife = Math.random() * 120 + 60;
+  }
+  update() {
+    this.x += this.vx; this.y += this.vy;
+    this.life++;
+    if (this.life > this.maxLife) this.reset();
+    this.alpha = 0.8 * (1 - this.life/this.maxLife);
+  }
+  draw(ctx) {
+    ctx.save();
+    ctx.globalAlpha = this.alpha;
+    ctx.fillStyle = `hsl(${270 + Math.random()*40},90%,70%)`;
+    ctx.shadowColor = '#9333ea';
+    ctx.shadowBlur  = 8;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+for (let i=0; i<ENERGY_COUNT; i++) ENERGY.push(new EnergyParticle());
+
+// ─── Estado del canvas ────────────────────────────────────
+let showStars   = true;
+let showPetals  = false;
+let showEnergy  = false;
+
+function drawFX() {
+  fxCtx.clearRect(0,0,W,H);
+
+  if (showStars) {
+    STARS.forEach(s => { s.update(); s.draw(fxCtx); });
+  }
+  if (showPetals) {
+    PETALS.forEach(p => { p.update(); p.draw(fxCtx); });
+  }
+  if (showEnergy) {
+    ENERGY.forEach(e => { ENERGY[0].cx=W/2; ENERGY[0].cy=H/2; e.update(); e.draw(fxCtx); });
+  }
+
+  requestAnimationFrame(drawFX);
+}
+drawFX();
+
+/* ============================================================
+   GESTOR CINEMATOGRÁFICO DE ESCENAS
+   ============================================================ */
+let currentScene = 1;
+let transitioning = false;
+const hint = document.getElementById('click-hint');
+const veil = document.getElementById('cinema-veil');
+
+// Escenas con transiciones largas y espectaculares
+const EPIC_SCENES = new Set([2, 6, 8, 9]); // dragón, brecha, dimensión, cerezo
+
+function getCinematicDurations(toScene) {
+  if (EPIC_SCENES.has(toScene)) {
+    return { veilIn: 700, veilPeak: 500, veilOut: 900, imgFadeIn: 1600, textDelay: 1600 };
+  }
+  return { veilIn: 500, veilPeak: 250, veilOut: 700, imgFadeIn: 1200, textDelay: 1000 };
+}
+
+function showScene(n, delay=0) {
+  setTimeout(()=>{
+    const durations = getCinematicDurations(n);
+
+    // 1. Fade out imagen actual (si existe bg saliente)
+    const prevBg = document.querySelector('.scene.active .scene-bg');
+    if (prevBg) {
+      prevBg.classList.add('cinematic-out');
+    }
+
+    // 2. Oscurecer con velo negro suavemente
+    veil.style.transition = `opacity ${durations.veilIn/1000}s ease`;
+    veil.style.opacity = EPIC_SCENES.has(n) ? '0.6' : '0.4';
+
+    // 3. En el pico del oscurecimiento: cambiar escena
+    setTimeout(()=>{
+      // Ocultar todas las escenas
+      document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+
+      // Mostrar nueva escena
+      const el = document.getElementById(`scene${n}`);
+      if (el) {
+        // Preparar imagen entrante con zoom de entrada
+        const newBg = el.querySelector('.scene-bg');
+        if (newBg) {
+          newBg.classList.remove('cinematic-out');
+          newBg.classList.add('cinematic-in');
+        }
+        el.classList.add('active');
+        // Activar fade-in de imagen un frame después
+        requestAnimationFrame(()=>{
+          requestAnimationFrame(()=>{
+            if (newBg) {
+              newBg.classList.add('cinematic-in-active');
+              // Limpiar clases después de la transición
+              setTimeout(()=>{
+                newBg.classList.remove('cinematic-in', 'cinematic-in-active');
+              }, durations.imgFadeIn + 200);
+            }
+          });
+        });
+      }
+
+      currentScene = n;
+      transitioning = false;
+
+      // 4. Quitar el velo suavemente
+      setTimeout(()=>{
+        veil.style.transition = `opacity ${durations.veilOut/1000}s ease`;
+        veil.style.opacity = '0';
+      }, 80);
+
+      // 5. Lógica de escena con delay para texto
+      onSceneEnter(n, durations.textDelay);
+
+    }, durations.veilIn + durations.veilPeak);
+
+  }, delay);
+}
+
+function flash(cb, duration=400) {
+  const f = document.getElementById('flash');
+  f.style.opacity = '1';
+  f.style.transition = 'opacity 0.1s ease';
+  setTimeout(()=>{
+    f.style.transition = `opacity ${duration/1000}s ease`;
+    f.style.opacity = '0';
+    if(cb) cb();
+  }, 150);
+}
+
+function goNext() {
+  if (transitioning) return;
+  transitioning = true;
+  hint.style.opacity = '0';
+
+  if (currentScene === 7)  return;
+  if (currentScene === 8)  return;
+  if (currentScene === 11) return;
+  if (currentScene === 12) {
+    showScene(13, 0);
+    return;
+  }
+
+  showScene(currentScene + 1, 0);
+}
+
+/* ============================================================
+   HELPER: Mostrar texto cinematográfico con máquina de escribir
+   ============================================================ */
+function showTextCinematic(wrapperId, textElId, text, speed, delay, cb) {
+  const wrap = document.getElementById(wrapperId);
+  const el   = document.getElementById(textElId);
+  if (!wrap || !el) return;
+
+  // Forzar estado oculto inicial
+  wrap.style.transition = 'none';
+  wrap.style.opacity    = '0';
+  wrap.style.transform  = 'translateY(14px)';
+  el.textContent = '';
+
+  setTimeout(()=>{
+    // Doble rAF para que el navegador confirme el estado inicial antes de animar
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        wrap.style.transition = 'opacity 0.9s ease, transform 0.9s ease';
+        wrap.style.opacity    = '1';
+        wrap.style.transform  = 'translateY(0)';
+        el.classList.add('cinematic-glow');
+        typewriter(textElId, text, speed, cb);
+      });
+    });
+  }, delay);
+}
+
+/* ============================================================
+   LÓGICA POR ESCENA
+   ============================================================ */
+function onSceneEnter(n, textDelay=1000) {
+
+  hint.style.opacity = '0';
+
+  switch(n) {
+
+    case 1:
+      showStars = true; showPetals = false; showEnergy = false;
+      showFireflies = false;
+      ffCanvas.style.opacity = '0';
+      setTimeout(()=>{ hint.style.opacity='1'; }, 2400);
+      break;
+
+    case 2: // DRAGÓN — épico
+      showStars = true; showPetals = false; showEnergy = false;
+      showFireflies = false;
+      setTimeout(()=>{ hint.style.opacity='1'; }, 2200);
+      break;
+
+    case 3:
+      showStars = true; showPetals = false; showEnergy = false;
+      showTextCinematic('wrap3', 'text3', textoEscena3, 40, textDelay, ()=>{
+        setTimeout(()=>{ hint.style.opacity='1'; }, 600);
+      });
+      break;
+
+    case 4:
+      showStars = true; showPetals = false; showEnergy = false;
+      {
+        const el = document.getElementById('text4');
+        if(el) {
+          el.style.color      = 'var(--clr-silver)';
+          el.style.fontStyle  = 'italic';
+          el.style.fontFamily = 'var(--font-title)';
+          el.style.fontSize   = 'clamp(16px,3.5vw,26px)';
+          el.style.lineHeight = '1.7';
+        }
+        const w4 = document.getElementById('wrap4');
+        if(w4) {
+          w4.style.transition = 'none';
+          w4.style.opacity    = '0';
+          w4.style.transform  = 'translateY(14px)';
+        }
+        setTimeout(()=>{
+          requestAnimationFrame(()=>{ requestAnimationFrame(()=>{
+            if(w4) {
+              w4.style.transition = 'opacity 0.9s ease, transform 0.9s ease';
+              w4.style.opacity    = '1';
+              w4.style.transform  = 'translateY(0)';
+            }
+            if(el) el.classList.add('cinematic-glow');
+            typewriter('text4', textoEscena4, 40, ()=>{
+              setTimeout(()=>{ hint.style.opacity='1'; }, 600);
+            });
+          });});
+        }, textDelay);
+      }
+      break;
+
+    case 5:
+      showStars = false; showPetals = false; showEnergy = false;
+      {
+        const w5 = document.getElementById('wrap5');
+        if(w5) {
+          w5.style.transition = 'none';
+          w5.style.opacity    = '0';
+          w5.style.transform  = 'translateY(14px)';
+        }
+        const el5 = document.getElementById('text5');
+        setTimeout(()=>{
+          requestAnimationFrame(()=>{ requestAnimationFrame(()=>{
+            if(w5) {
+              w5.style.transition = 'opacity 0.9s ease, transform 0.9s ease';
+              w5.style.opacity    = '1';
+              w5.style.transform  = 'translateY(0)';
+            }
+            if(el5) el5.classList.add('cinematic-glow');
+            typewriter('text5', textoEscena5, 40, ()=>{
+              setTimeout(()=>{ hint.style.opacity='1'; }, 600);
+            });
+          });});
+        }, textDelay);
+      }
+      break;
+
+    case 6: // BRECHA — épico
+      showStars = false; showPetals = false; showEnergy = true;
+      {
+        const w6 = document.getElementById('wrap6');
+        if(w6) {
+          w6.style.transition = 'none';
+          w6.style.opacity    = '0';
+          w6.style.transform  = 'translateY(14px)';
+        }
+        const el6 = document.getElementById('text6');
+        setTimeout(()=>{
+          requestAnimationFrame(()=>{ requestAnimationFrame(()=>{
+            if(w6) {
+              w6.style.transition = 'opacity 0.9s ease, transform 0.9s ease';
+              w6.style.opacity    = '1';
+              w6.style.transform  = 'translateY(0)';
+            }
+            if(el6) el6.classList.add('cinematic-glow');
+            typewriter('text6', textoEscena6, 40, ()=>{
+              setTimeout(()=>{ hint.style.opacity='1'; }, 600);
+            });
+          });});
+        }, textDelay);
+      }
+      break;
+
+    case 7:
+      showStars = false; showPetals = false; showEnergy = true;
+      setupOrb();
+      break;
+
+    case 8: // DIMENSIÓN — épico
+      showStars = false; showPetals = false; showEnergy = true;
+      {
+        const panel = document.getElementById('glass-panel');
+        if(panel) {
+          panel.style.transition = 'none';
+          panel.style.opacity    = '0';
+          panel.style.transform  = 'translateY(30px)';
+        }
+        setTimeout(()=>{
+          if(panel) {
+            panel.style.transition = 'opacity 1.5s ease, transform 1.5s ease';
+            panel.style.opacity    = '1';
+            panel.style.transform  = 'translateY(0)';
+          }
+          setTimeout(()=>{
+            const pt = document.getElementById('panel-text');
+            if(pt) pt.classList.add('cinematic-glow');
+            typewriter('panel-text', mensajeDimension, 42);
+          }, 700);
+        }, textDelay);
+      }
+      break;
+
+    case 9: // CEREZO — épico
+      showStars = false; showPetals = true; showEnergy = false;
+      setTimeout(()=>{ hint.style.opacity='1'; }, 2400);
+      break;
+
+    case 10:
+      showStars = false; showPetals = true; showEnergy = false;
+      {
+        const gachaPanel = document.getElementById('gacha-panel');
+        if(gachaPanel) {
+          gachaPanel.style.transition = 'none';
+          gachaPanel.style.opacity    = '0';
+          gachaPanel.style.transform  = 'translateY(18px)';
+        }
+        setTimeout(()=>{
+          if(gachaPanel) {
+            gachaPanel.style.transition = 'opacity 1s ease, transform 1s ease';
+            gachaPanel.style.opacity    = '1';
+            gachaPanel.style.transform  = 'translateY(0)';
+          }
+          const gt = document.getElementById('gacha-text');
+          if(gt) gt.classList.add('cinematic-glow');
+          typewriter('gacha-text', mensajeEncuentro, 42, ()=>{
+            setTimeout(()=>{ hint.style.opacity='1'; }, 800);
+          });
+        }, textDelay);
+      }
+      break;
+
+    case 11:
+      showStars = false; showPetals = true; showEnergy = false;
+      showFireflies = true;
+      ffCanvas.style.opacity = '1';
+      {
+        const juntosPanel = document.getElementById('juntos-panel');
+        if(juntosPanel) {
+          juntosPanel.style.transition = 'none';
+          juntosPanel.style.opacity    = '0';
+          juntosPanel.style.transform  = 'translateX(-50%) translateY(20px)';
+        }
+        setTimeout(()=>{
+          if(juntosPanel) {
+            juntosPanel.style.transition = 'opacity 1.8s ease, transform 1.8s ease';
+            juntosPanel.style.opacity    = '1';
+            juntosPanel.style.transform  = 'translateX(-50%) translateY(0)';
+          }
+          const jt = document.getElementById('juntos-text');
+          if(jt) jt.classList.add('cinematic-glow');
+          setTimeout(()=>{
+            typewriter('juntos-text', mensajeEncuentroFinal, 40, ()=>{
+              const btnJ = document.getElementById('btn-juntos');
+              setTimeout(()=>{ btnJ.style.opacity='1'; }, 600);
+            });
+          }, 700);
+        }, textDelay);
+      }
+      break;
+
+    case 12:
+      showStars = false; showPetals = true; showEnergy = false;
+      showFireflies = false;
+      ffCanvas.style.opacity = '0';
+      {
+        const fot = document.getElementById('final-overlay-text');
+        if(fot) {
+          fot.textContent = mensajeFinal;
+          fot.style.transition = 'none';
+          fot.style.opacity    = '0';
+          fot.style.transform  = 'translateY(14px)';
+        }
+        setTimeout(()=>{
+          if(fot) {
+            fot.style.transition = 'opacity 3s ease, transform 2s ease';
+            fot.style.opacity    = '1';
+            fot.style.transform  = 'translateY(0)';
+            fot.classList.add('cinematic-glow');
+          }
+          setTimeout(()=>{ hint.style.opacity='1'; }, 3800);
+        }, textDelay);
+      }
+      break;
+
+    case 13:
+      showStars = false; showPetals = true; showEnergy = false;
+      showFireflies = true;
+      ffCanvas.style.opacity = '1';
+      setTimeout(()=>{ PETALS.forEach(p => { p.speedY *= 1.3; p.alpha = Math.min(p.alpha+0.15, 0.95); }); }, 3500);
+      {
+        const fam = document.getElementById('final-absolute-msg');
+        if(fam) {
+          fam.style.transition = 'none';
+          fam.style.opacity    = '0';
+        }
+        setTimeout(()=>{
+          if(fam) {
+            fam.style.transition = 'opacity 2.8s ease';
+            fam.style.opacity    = '1';
+          }
+          setTimeout(startFerrets, 2800);
+        }, textDelay);
+      }
+      break;
+  }
+}
+
+/* ============================================================
+   TYPEWRITER
+   ============================================================ */
+function typewriter(elId, text, speed=45, cb) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.textContent = '';
+  let i = 0;
+  function type() {
+    if (i < text.length) {
+      el.textContent += text[i++];
+      setTimeout(type, speed);
+    } else if (cb) cb();
+  }
+  type();
+}
+
+/* ============================================================
+   ORBE INTERACTIVO (ESCENA 7)
+   ============================================================ */
+function setupOrb() {
+  const orb = document.getElementById('light-orb');
+  orb.style.animation = 'orbFloat 4s ease-in-out infinite';
+
+  function handleOrb(e) {
+    e.stopPropagation();
+    if (transitioning) return;
+    transitioning = true;
+
+    // Efecto de explosión del orbe
+    orb.style.transition = 'transform 0.4s ease, box-shadow 0.4s ease';
+    orb.style.transform  = 'translate(-50%,-50%) scale(2.5)';
+    orb.style.boxShadow  = '0 0 120px 50px rgba(255,255,255,1), 0 0 200px 80px rgba(192,132,252,1)';
+    orb.style.animation  = 'none';
+
+    setTimeout(()=>{
+      const f = document.getElementById('flash');
+      f.style.opacity = '1';
+      f.style.transition = 'opacity 0.08s ease';
+      setTimeout(()=>{
+        f.style.transition = 'opacity 0.6s ease';
+        f.style.opacity = '0';
+        showScene(8, 100);
+        orb.style.transform  = 'translate(-50%,-50%) scale(1)';
+        orb.style.boxShadow  = '';
+        orb.style.transition = '';
+      }, 200);
+    }, 400);
+  }
+
+  orb.addEventListener('click',      handleOrb);
+  orb.addEventListener('touchstart', handleOrb, {passive:false});
+}
+
+/* ============================================================
+   BOTÓN CONTINUAR (ESCENA 8)
+   ============================================================ */
+document.getElementById('btn-continuar').addEventListener('click', ()=>{
+  if (transitioning) return;
+  transitioning = true;
+
+  // — ESCENA A: Colapso dimensional —
+  const panel = document.getElementById('glass-panel');
+
+  // 1. Vibración del panel
+  let shakes = 0;
+  const shakeInterval = setInterval(()=>{
+    shakes++;
+    const dx = (Math.random()-0.5)*14;
+    const dy = (Math.random()-0.5)*8;
+    panel.style.transform = `translate(${dx}px,${dy}px)`;
+  }, 55);
+
+  // 2. Aumentar partículas de energía (más cantidad y velocidad)
+  ENERGY.forEach(e => { e.vx *= 2.5; e.vy *= 2.5; e.r *= 1.6; });
+
+  // 3. Agregar destellos púrpura extra parpadeantes
+  let flashCount = 0;
+  const purpleFlash = document.createElement('div');
+  purpleFlash.style.cssText = `
+    position:fixed;inset:0;pointer-events:none;z-index:990;
+    background:radial-gradient(ellipse at 50% 50%, rgba(147,51,234,0.35) 0%, transparent 70%);
+    opacity:0;transition:opacity 0.1s ease;
+  `;
+  document.body.appendChild(purpleFlash);
+
+  const flickerInterval = setInterval(()=>{
+    flashCount++;
+    purpleFlash.style.opacity = Math.random() > 0.4 ? String(Math.random()*0.7+0.2) : '0';
+    if (flashCount > 20) clearInterval(flickerInterval);
+  }, 80);
+
+  // 4. Vibración de la pantalla entera
+  let bodyShake = 0;
+  const bodyShakeInterval = setInterval(()=>{
+    bodyShake++;
+    const dx = (Math.random()-0.5)*6;
+    const dy = (Math.random()-0.5)*4;
+    document.getElementById('stage').style.transform = `translate(${dx}px,${dy}px)`;
+    if (bodyShake > 18) {
+      clearInterval(bodyShakeInterval);
+      document.getElementById('stage').style.transform = '';
+    }
+  }, 70);
+
+  // 5. Terminar vibraciones y hacer flash blanco cinematográfico
+  setTimeout(()=>{
+    clearInterval(shakeInterval);
+    panel.style.transform = '';
+
+    // Restaurar partículas
+    ENERGY.forEach(e => { e.reset(); });
+
+    // Flash blanco a pantalla completa
+    const f = document.getElementById('flash');
+    f.style.transition = 'opacity 0.08s ease';
+    f.style.opacity = '1';
+
+    // Limpiar el destello púrpura
+    purpleFlash.style.opacity = '0';
+    setTimeout(()=>{
+      document.body.removeChild(purpleFlash);
+    }, 500);
+
+    setTimeout(()=>{
+      f.style.transition = 'opacity 0.7s ease';
+      f.style.opacity = '0';
+      showScene(9, 100);
+    }, 220);
+
+  }, 1200);
+});
+
+/* ============================================================
+   HURONES FINALES — escena 13
+   ============================================================ */
+function startFerrets() {
+  const fl = document.getElementById('ferret-left');
+  const fr = document.getElementById('ferret-right');
+
+  fl.style.opacity = '1';
+  fr.style.opacity = '1';
+  fl.classList.add('walk');
+  fr.classList.add('walk');
+
+  // Al sentarse juntos
+  setTimeout(()=>{
+    // Detener piernas
+    document.querySelectorAll('.f-leg-f, .f-leg-b').forEach(l=>{
+      l.style.animation = 'none';
+    });
+    // Flotación suave sentados
+    fl.classList.add('seated');
+    fr.classList.add('seated');
+    fl.style.setProperty('--fx', 'clamp(-50px,-9vw,-32px)');
+    fr.style.setProperty('--fx', 'clamp(50px,9vw,32px)');
+
+    // Corazón
+    const h = document.getElementById('heart-final');
+    h.style.transition = 'opacity 1.8s ease';
+    h.style.opacity = '1';
+
+    // Incrementar luciérnagas y pétalos mágicos
+    FIREFLIES.forEach(f => { f.r = f.r * 1.4 + 0.5; });
+
+    // Brillo ambiental extra: overlay temporario
+    const glow = document.createElement('div');
+    glow.style.cssText = `position:fixed;inset:0;pointer-events:none;z-index:5;
+      background:radial-gradient(ellipse 60% 40% at 50% 65%, rgba(255,200,180,0.12) 0%, transparent 70%);
+      opacity:0;transition:opacity 3s ease;`;
+    document.body.appendChild(glow);
+    requestAnimationFrame(()=>{ glow.style.opacity='1'; });
+
+    // Mostrar "Fin"
+    setTimeout(()=>{
+      const fin = document.getElementById('msg-fin-text');
+      fin.style.transition = 'opacity 2.5s ease';
+      fin.style.opacity = '1';
+    }, 1200);
+
+    // Botón reiniciar
+    setTimeout(()=>{
+      const br = document.getElementById('btn-restart');
+      br.style.transition = 'opacity 2s ease';
+      br.style.opacity = '1';
+    }, 3000);
+
+  }, 3200);
+}
+
+/* ============================================================
+   EVENTOS DE CLICK GLOBAL
+   ============================================================ */
+const CLICKABLE_SCENES = [1,2,3,4,5,6,9,10,12];
+
+document.getElementById('stage').addEventListener('click', (e)=>{
+  if (CLICKABLE_SCENES.includes(currentScene)) {
+    goNext();
+  }
+});
+
+document.getElementById('stage').addEventListener('touchend', (e)=>{
+  if (CLICKABLE_SCENES.includes(currentScene)) {
+    e.preventDefault();
+    goNext();
+  }
+},{passive:false});
+
+/* ============================================================
+   BOTÓN CONTINUAR — ESCENA 11 (JUNTOS)
+   ============================================================ */
+document.getElementById('btn-juntos').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  if (transitioning) return;
+  transitioning = true;
+  ffCanvas.style.transition = 'opacity 0.8s ease';
+  ffCanvas.style.opacity = '0';
+  showFireflies = false;
+  showScene(12, 0);
+});
+document.getElementById('btn-juntos').addEventListener('touchstart', (e)=>{
+  e.stopPropagation();
+  if (transitioning) return;
+  transitioning = true;
+  ffCanvas.style.transition = 'opacity 0.8s ease';
+  ffCanvas.style.opacity = '0';
+  showFireflies = false;
+  showScene(12, 0);
+},{passive:false});
+
+/* ============================================================
+   BOTÓN REINICIAR
+   ============================================================ */
+function restartExperience() {
+  if (transitioning) return;
+  transitioning = true;
+
+  // Reset estados de canvas
+  showStars = false; showPetals = false; showEnergy = false;
+  showFireflies = false;
+  ffCanvas.style.opacity = '0';
+  ffCanvas.style.transition = 'none';
+
+  // Restaurar velocidad de pétalos
+  PETALS.forEach(p => { p.speedY = Math.random() * 1.2 + 0.5; p.alpha = Math.random()*0.6+0.3; });
+  // Restaurar luciérnagas
+  FIREFLIES.forEach(f => { f.reset(true); });
+
+  // Reset escena 11
+  const jp = document.getElementById('juntos-panel');
+  if(jp) { jp.style.opacity='0'; jp.style.transform='translateX(-50%) translateY(20px)'; }
+  document.getElementById('juntos-text').textContent = '';
+  const btnJ = document.getElementById('btn-juntos');
+  if(btnJ) { btnJ.style.opacity='0'; btnJ.style.transition='none'; }
+
+  // Reset escena 12
+  const fot = document.getElementById('final-overlay-text');
+  if(fot) { fot.textContent=''; fot.style.opacity='0'; fot.style.transform='translateY(14px)'; fot.style.transition='none'; }
+
+  // Reset textos typewriter escenas 3-6
+  ['text3','text4','text5','text6'].forEach(id=>{
+    const el = document.getElementById(id); if(el) { el.textContent=''; el.classList.remove('cinematic-glow'); }
+  });
+  const w3=document.getElementById('wrap3'); if(w3){w3.style.opacity='0';w3.style.transform='translateY(14px)';}
+  const w4=document.getElementById('wrap4'); if(w4){w4.style.opacity='0';w4.style.transform='translateY(14px)';}
+  const w5=document.getElementById('wrap5'); if(w5){w5.style.opacity='0';w5.style.transform='translateY(14px)';}
+  const w6=document.getElementById('wrap6'); if(w6){w6.style.opacity='0';w6.style.transform='translateY(14px)';}
+  const pt=document.getElementById('panel-text'); if(pt) pt.classList.remove('cinematic-glow');
+
+  // Reset escena 13
+  const fam = document.getElementById('final-absolute-msg');
+  if(fam) { fam.style.opacity='0'; fam.style.transition='none'; }
+  const fin = document.getElementById('msg-fin-text');
+  if(fin) { fin.style.opacity='0'; fin.style.transition='none'; }
+
+  // Reset escena 10 gacha
+  const gp = document.getElementById('gacha-panel');
+  if(gp) { gp.style.opacity='0'; gp.style.transform='translateY(18px)'; }
+  document.getElementById('gacha-text').textContent = '';
+
+  // Reset escena 8
+  document.getElementById('panel-text').textContent = '';
+  const panel8 = document.getElementById('glass-panel');
+  if(panel8) { panel8.style.opacity='0'; panel8.style.transform='translateY(30px)'; }
+
+  // Reset hurones
+  const fl = document.getElementById('ferret-left');
+  const fr = document.getElementById('ferret-right');
+  if(fl) { fl.style.opacity='0'; fl.classList.remove('walk','seated'); }
+  if(fr) { fr.style.opacity='0'; fr.classList.remove('walk','seated'); }
+  document.querySelectorAll('.f-leg-f, .f-leg-b').forEach(l=>{ l.style.animation=''; });
+
+  const hf = document.getElementById('heart-final');
+  if(hf) hf.style.opacity='0';
+  const br = document.getElementById('btn-restart');
+  if(br) { br.style.opacity='0'; br.style.transition='none'; }
+
+  // Eliminar overlays de brillo residuales
+  document.querySelectorAll('body > div[style*="radial-gradient"]').forEach(el=>{ try{document.body.removeChild(el);}catch(e){} });
+
+  flash(()=> showScene(1, 0), 400);
+}
+
+document.getElementById('btn-restart').addEventListener('click', restartExperience);
+document.getElementById('btn-restart').addEventListener('touchstart', (e)=>{
+  e.stopPropagation();
+  restartExperience();
+},{passive:false});
+
+/* ============================================================
+   INICIO
+   ============================================================ */
+// Primera carga: sin transición cinematográfica
+(function initFirstScene() {
+  const el = document.getElementById('scene1');
+  if (el) el.classList.add('active');
+  currentScene = 1;
+  onSceneEnter(1, 1500);
+})();
+</script>
+</body>
+</html>
